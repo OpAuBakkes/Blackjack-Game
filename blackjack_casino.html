@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casino Blackjack</title>
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: radial-gradient(circle at center, #0b0c1a, #000);
+    color: #fff;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+  h1 {
+    margin-top: 20px;
+    font-size: 38px;
+    color: #ffd700;
+    text-shadow: 0 0 8px #ffae00;
+  }
+  .table {
+    background: linear-gradient(160deg, #065f1f, #043e14);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 20px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.6);
+  }
+  .info {
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+  input {
+    width: 90px;
+    padding: 6px;
+    font-size: 16px;
+    text-align: center;
+  }
+  button {
+    background-color: #e53935;
+    border: none;
+    color: #fff;
+    padding: 10px 20px;
+    margin: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: 0.2s;
+  }
+  button:hover { background-color: #ff7043; }
+  .cards-area {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+  }
+  .hand {
+    width: 45%;
+  }
+  .hand h2 {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 6px;
+  }
+  .card {
+    display: inline-block;
+    width: 70px;
+    height: 100px;
+    margin: 5px;
+    border-radius: 8px;
+    background-color: white;
+    color: black;
+    font-size: 20px;
+    line-height: 100px;
+    box-shadow: 0 0 5px #000;
+  }
+  #messages {
+    font-size: 20px;
+    margin-top: 15px;
+    font-weight: bold;
+    color: #ffd700;
+    min-height: 24px;
+  }
+  .chips {
+    margin-top: 10px;
+  }
+  .chip {
+    display: inline-block;
+    width: 60px;
+    height: 60px;
+    line-height: 60px;
+    border-radius: 50%;
+    font-weight: bold;
+    margin: 5px;
+    cursor: pointer;
+    box-shadow: 0 0 5px #000;
+  }
+  .chip.red { background-color: #d32f2f; color: #fff; }
+  .chip.green { background-color: #2e7d32; color: #fff; }
+  .chip.blue { background-color: #1565c0; color: #fff; }
+  .chip.gold { background-color: #fbc02d; color: #000; }
+</style>
+</head>
+<body>
+  <h1>🎰 Blackjack Deluxe 🎲</h1>
+  <div class="table">
+    <div class="info">
+      💵 Balans: $<span id="balance">1000</span>
+    </div>
+    <div class="chips">
+      <div class="chip red" data-value="50">$50</div>
+      <div class="chip green" data-value="100">$100</div>
+      <div class="chip blue" data-value="250">$250</div>
+      <div class="chip gold" data-value="500">$500</div>
+    </div>
+    <div class="info">Inzet: $<input type="number" id="bet" value="100" min="1"></div>
+
+    <div class="cards-area">
+      <div class="hand">
+        <h2>Jij</h2>
+        <div id="playerCards"></div>
+        <p>Score: <span id="playerScore">0</span></p>
+      </div>
+      <div class="hand">
+        <h2>Dealer</h2>
+        <div id="dealerCards"></div>
+        <p>Score: <span id="dealerScore">0</span></p>
+      </div>
+    </div>
+
+    <div id="messages"></div>
+
+    <div>
+      <button id="hitBtn">Hit</button>
+      <button id="standBtn">Stand</button>
+      <button id="resetBtn">Nieuwe Ronde</button>
+    </div>
+  </div>
+
+<script>
+let balance = 1000;
+let playerCards = [];
+let dealerCards = [];
+let gameOver = false;
+
+const balanceEl = document.getElementById("balance");
+const betInput = document.getElementById("bet");
+const playerCardsDiv = document.getElementById("playerCards");
+const dealerCardsDiv = document.getElementById("dealerCards");
+const playerScoreEl = document.getElementById("playerScore");
+const dealerScoreEl = document.getElementById("dealerScore");
+const messagesEl = document.getElementById("messages");
+
+document.querySelectorAll(".chip").forEach(chip=>{
+  chip.addEventListener("click",()=>{
+    betInput.value = chip.dataset.value;
+  });
+});
+
+function drawCard() {
+  const ranks = [2,3,4,5,6,7,8,9,10,"J","Q","K","A"];
+  const suits = ["♥","♦","♣","♠"];
+  const rank = ranks[Math.floor(Math.random()*ranks.length)];
+  const suit = suits[Math.floor(Math.random()*suits.length)];
+  return {rank, suit};
+}
+
+function cardValue(card) {
+  if (["J","Q","K"].includes(card.rank)) return 10;
+  if (card.rank === "A") return 11;
+  return card.rank;
+}
+
+function renderCard(card, div) {
+  const c = document.createElement("div");
+  c.className = "card";
+  c.textContent = card.rank + card.suit;
+  div.appendChild(c);
+}
+
+function calcScore(cards) {
+  let score = cards.reduce((a,b)=>a+cardValue(b),0);
+  let aces = cards.filter(c=>c.rank==="A").length;
+  while(score>21 && aces>0) {
+    score -= 10;
+    aces--;
+  }
+  return score;
+}
+
+function startRound() {
+  playerCards = [];
+  dealerCards = [];
+  playerCardsDiv.innerHTML = "";
+  dealerCardsDiv.innerHTML = "";
+  messagesEl.textContent = "";
+  gameOver = false;
+  playerCards.push(drawCard(), drawCard());
+  dealerCards.push(drawCard());
+  playerCards.forEach(c=>renderCard(c, playerCardsDiv));
+  dealerCards.forEach(c=>renderCard(c, dealerCardsDiv));
+  updateScores();
+}
+
+function updateScores() {
+  const p = calcScore(playerCards);
+  const d = calcScore(dealerCards);
+  playerScoreEl.textContent = p;
+  dealerScoreEl.textContent = d;
+}
+
+function checkWin() {
+  const bet = parseInt(betInput.value);
+  let p = calcScore(playerCards);
+  let d = calcScore(dealerCards);
+
+  if (p > 21) {
+    messagesEl.textContent = "Bust! Dealer wint.";
+    balance -= bet;
+    gameOver = true;
+  } else if (p === 21) {
+    messagesEl.textContent = "Blackjack! Jij wint!";
+    balance += Math.floor(bet*1.5);
+    gameOver = true;
+  } else if (gameOver) {
+    if (d > 21 || p > d) {
+      messagesEl.textContent = "Jij wint!";
+      balance += bet;
+    } else if (p < d) {
+      messagesEl.textContent = "Dealer wint!";
+      balance -= bet;
+    } else {
+      messagesEl.textContent = "Gelijkspel!";
+    }
+  }
+  balanceEl.textContent = balance;
+}
+
+document.getElementById("hitBtn").addEventListener("click",()=>{
+  if (gameOver) return;
+  const card = drawCard();
+  playerCards.push(card);
+  renderCard(card, playerCardsDiv);
+  updateScores();
+  if (calcScore(playerCards) >= 21) {
+    checkWin();
+  }
+});
+
+document.getElementById("standBtn").addEventListener("click",()=>{
+  if (gameOver) return;
+  while (calcScore(dealerCards) < 17) {
+    const card = drawCard();
+    dealerCards.push(card);
+    renderCard(card, dealerCardsDiv);
+  }
+  gameOver = true;
+  updateScores();
+  checkWin();
+});
+
+document.getElementById("resetBtn").addEventListener("click", startRound);
+
+startRound();
+</script>
+</body>
+</html>
